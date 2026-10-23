@@ -1,0 +1,76 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_id:
+        description: Package name (applicationId)
+        default: am.snp.shop
+      use_mock:
+        description: Mock API (true) или реальный backend (false)
+        default: "false"
+      api_base_url:
+        description: URL backend (если use_mock=false)
+        default: https://snp.am
+      google_server_client_id:
+        description: Web OAuth client ID (тот же, что GOOGLE_CLIENT_ID на сервере) для входа через Google
+        default: 774497964281-qedikh8go9nk3mudtdt9q59qjumsvi0q.apps.googleusercontent.com
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Bootstrap native projects
+        env:
+          APP_ID: ${{ github.event.inputs.app_id || 'am.snp.shop' }}
+        run: bash ./tool/bootstrap.sh
+
+      - name: Analyze
+        continue-on-error: true
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Test
+        continue-on-error: true
+        run: flutter test
+
+      - name: Build debug APK
+        run: >
+          flutter build apk --debug
+          --dart-define=USE_MOCK_API=${{ github.event.inputs.use_mock || 'false' }}
+          --dart-define=API_BASE_URL=${{ github.event.inputs.api_base_url || 'https://snp.am' }}
+          --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ github.event.inputs.google_server_client_id || '774497964281-qedikh8go9nk3mudtdt9q59qjumsvi0q.apps.googleusercontent.com' }}
+
+      - name: Build release APK
+        run: >
+          flutter build apk --release
+          --dart-define=USE_MOCK_API=${{ github.event.inputs.use_mock || 'false' }}
+          --dart-define=API_BASE_URL=${{ github.event.inputs.api_base_url || 'https://snp.am' }}
+          --dart-define=GOOGLE_SERVER_CLIENT_ID=${{ github.event.inputs.google_server_client_id || '774497964281-qedikh8go9nk3mudtdt9q59qjumsvi0q.apps.googleusercontent.com' }}
+
+      - name: Prepare SNP.apk for the website
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/SNP.apk
+          (cd build/app/outputs/flutter-apk && sha256sum SNP.apk | tee SNP.apk.sha256 && ls -l SNP.apk)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/SNP.apk
+            build/app/outputs/flutter-apk/SNP.apk.sha256

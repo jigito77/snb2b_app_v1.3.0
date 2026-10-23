@@ -1,0 +1,17 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Предупреждения о deprecated API не должны ломать сборку при смене версии Flutter.
+    deprecated_member_use: info
+    deprecated_member_use_from_same_package: info
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    avoid_print: true
